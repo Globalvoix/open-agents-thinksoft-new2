@@ -1,0 +1,225 @@
+# Open Harness — Replit Migration Notes
+
+## Overview
+Open Harness (formerly Open Agents) is a Next.js 16 Bun monorepo that provides an AI coding-agent interface. It has been migrated from Vercel hosting to Replit, using Neon PostgreSQL, Upstash Redis, and the Vercel Sandbox API for coding-agent execution.
+
+## Workflow
+- **Start command**: `bash -c 'cd apps/web && bun run dev'` on port 5000
+- **Package manager**: Bun (bun@1.2.14)
+
+## Required Secrets
+| Secret | Purpose |
+|--------|---------|
+| `POSTGRES_URL` | Neon PostgreSQL connection string |
+| `REDIS_URL` | Upstash Redis connection string |
+| `ENCRYPTION_KEY` | AES-256 encryption for sensitive data |
+| `JWE_SECRET` | 32-byte base64url key for guest JWE sessions (A256GCM) |
+| `VERCEL_ACCESS_TOKEN` | Vercel API token for sandbox creation |
+| `VERCEL_PROJECT_ID` | Vercel project for sandbox association |
+| `VERCEL_TEAM_ID` | Vercel team for sandbox creation |
+| `OPENCODE_API_KEY` | OpenCode Zen API key (starts with `sk-`) for Big Pickle model |
+
+## Optional Secrets
+| Secret | Purpose |
+|--------|---------|
+| `FIRECRAWL_API_KEY` | Firecrawl API key for competitor research & design cloning |
+| `VERCEL_SANDBOX_BASE_SNAPSHOT_ID` | Pre-built snapshot with bun/jq/chromium (empty = clean Ubuntu) |
+| `GITHUB_APP_ID` | GitHub App for repo linking/PR features |
+| `GITHUB_APP_PRIVATE_KEY` | GitHub App private key |
+| `NEXT_PUBLIC_GITHUB_APP_SLUG` | GitHub App slug for OAuth link |
+
+## Key Migration Changes
+
+### 1. Auto-Guest Sessions (`apps/web/proxy.ts`)
+- Changed `export default async function proxy()` (Next.js 16 pattern)
+- Auto-creates JWE guest sessions when no session cookie exists
+- No sign-in required — users get a `guest-XXXXXXXX` identity automatically
+
+### 2. Big Pickle Default Model (`apps/web/lib/models-with-context.ts`, `apps/web/lib/models.ts`)
+- `opencode/big-pickle` added as static model (free on OpenCode Zen)
+- Routes via `@ai-sdk/openai` pointing to `https://opencode.ai/zen/v1`
+- Requires `OPENCODE_API_KEY` environment secret (key starts with `sk-`)
+- Both `DEFAULT_MODEL_ID` and `APP_DEFAULT_MODEL_ID` set to `opencode/big-pickle`
+- Vercel AI Gateway failures caught gracefully (returns empty array, falls back to static models)
+
+### 3. BotID Removed from API Routes
+- Removed `checkBotId()` calls from: sandbox, chat, generate-pr, generate-title, generate-commit-message, transcribe routes
+- These were returning 403 on Replit; auth session check is the only guard now
+
+### 4. Sandbox Timeout Fixed (`apps/web/lib/sandbox/config.ts`, `packages/sandbox/vercel/sandbox.ts`)
+- Vercel Sandbox API caps `timeout` at 2,700,000 ms (45 minutes)
+- `MAX_SDK_TIMEOUT_MS` updated from 18,000,000 to 2,700,000
+- `DEFAULT_SANDBOX_TIMEOUT_MS` set to `2,670,000` ms (accounts for 30s `beforeStop` buffer)
+
+### 5. Sandbox Base Snapshot Removed
+- Hardcoded snapshot `snap_EjsphVxi07bFKrfojljJdIS41KHT` replaced with optional env var
+- `DEFAULT_SANDBOX_BASE_SNAPSHOT_ID = process.env.VERCEL_SANDBOX_BASE_SNAPSHOT_ID || undefined`
+- Without a snapshot, sandboxes start from a clean Ubuntu environment
+- Set `VERCEL_SANDBOX_BASE_SNAPSHOT_ID` to a valid snapshot ID to restore pre-installed tools
+
+### 6. Mark-as-Read Graceful Handling (`apps/web/hooks/use-session-chats.ts`)
+- The `/read` API route (`POST /api/sessions/[sessionId]/chats/[chatId]/read`) is compiled lazily by Turbopack in dev mode
+- On the very first request after a server restart, Turbopack may not have compiled the route yet and returns HTML 404
+- Fixed `markChatRead` to check `Content-Type` before calling `.json()` — silently skips non-JSON responses instead of throwing a `SyntaxError` console error
+- In production (pre-compiled) this path never triggers
+
+### 7. Button Nesting Fixed (`apps/web/components/inbox-sidebar.tsx`)
+- `SessionRow` outer `<button>` changed to `<div role="button" tabIndex={0}>` to fix nested button HTML violation
+
+### 8. Anthropic & OpenAI Direct Model Support (`packages/agent/models.ts`, `apps/web/lib/models-with-context.ts`)
+- Added direct routing for `anthropic/*` models when `ANTHROPIC_API_KEY` is set — bypasses Vercel AI Gateway
+- Added direct routing for `openai/*` models when `OPENAI_API_KEY` is set — bypasses Vercel AI Gateway
+- **Claude Haiku 4.5** (`anthropic/claude-haiku-4-5`) appears in model picker when `ANTHROPIC_API_KEY` is present
+- **GPT-5** (`openai/gpt-5`) appears in model picker when `OPENAI_API_KEY` is present
+- Both models are omitted from the static model list if the corresponding key is missing — no errors, no empty entries
+- GPT-5 uses the OpenAI Responses API (`openaiProvider.responses(...)`) with `store: false` and encrypted reasoning content options
+- Claude Haiku 4.5 uses the extended thinking API with an 8000-token budget
+
+### 9. Agent Tech Stack & UI Quality (`packages/agent/system-prompt.ts`)
+- Full rewrite of the **Tech Stack for Web Projects** section with production-quality UI standards
+- Core stack: TypeScript + React + Tailwind CSS + Next.js (App Router)
+- **Component libraries**: Shadcn/ui (primary, via `npx shadcn@latest init/add`), HeroUI v3, Radix UI primitives
+- **Icons**: lucide-react (primary), react-icons; never emoji or text substitutes
+- **Animations**: CSS/Tailwind (tailwindcss-animate) on first build; framer-motion only in follow-up iterations after page renders correctly
+- **Images**: Unsplash URLs or picsum.photos for placeholders; next/image in Next.js projects
+- **3D/Visual**: @react-three/fiber + @react-three/drei for 3D scenes; @splinetool/react-spline for Spline embeds
+- **Package installation**: agent must run `bun add` (or npm/pnpm based on lock file) before using any package
+- **Design quality standards**: visual hierarchy, spacing, color palette, typography, responsiveness, dark mode — bare unstyled pages are explicitly prohibited
+
+### 10. World-Class Design Intelligence (`packages/agent/system-prompt.ts`)
+- Added a comprehensive **10-Law design system** to the agent's system prompt covering every dimension of design quality
+- **LAW 1 — Information Architecture**: Agent MUST plan sitemap and page purposes before writing code. Anti-cramming rule: one page = one conversion goal. Structured page templates for SaaS, B2C, Enterprise, and marketing landing pages
+- **LAW 2 — Design Point of View**: Agent answers brand personality questions (playful vs serious, technical vs consumer, etc.) before choosing a design archetype
+- **LAW 3 — 7 Design Reference Systems**: Ultra-Minimal/Precise (Linear, Vercel, Raycast), Motion-First/Editorial (Framer, Webflow), Human/Warm (Airbnb, Notion), Technical/Developer (Stripe, Supabase), Premium/Luxury (Apple, BMW, Ferrari), Playful/Consumer (Spotify, Figma), Trust-Signal/Enterprise (IBM, Coinbase) — each with specific color, type, spacing, layout, motion, and image rules
+- **LAW 4 — Section Composition**: Hero, feature grid, testimonials, stats, CTA, footer — each has explicit rules on what to include and exclude
+- **LAW 5 — Typography System**: Full scale from Display (72-120px) down to Caption (12-13px) with Tailwind class equivalents
+- **LAW 6 — Color System**: Exactly 9 color roles (background, surface, border, primary text, secondary text, accent, accent-hover, destructive, success)
+- **LAW 7 — Spacing System**: Section, container, card, grid, stack, and max-width rules using Tailwind scale
+- **LAW 8 — Motion Design**: Timing values, Framer Motion patterns, and which animations earn their place vs which distract
+- **LAW 9 — Anti-Pattern Blacklist**: 14 explicitly forbidden patterns (laptop mockups, lorem ipsum, rainbow gradient buttons, empty placeholder grids, wall of text, framer-motion on first build, Live Preview placeholder pages, localhost URLs in generated content, etc.)
+- **LAW 10 — Pre-Delivery Checklist**: 14-point quality gate agent must pass before calling a design complete
+- Source: 59 world-class brand design systems from https://github.com/VoltAgent/awesome-design-md
+
+### 11. Voyage AI Embedding Tool (`packages/agent/tools/embed.ts`)
+- New "embed" tool registered in the agent's toolset alongside read/write/bash/etc.
+- Uses Voyage AI API (`voyage-3.5` or `voyage-3.5-lite`) — requires `VOYAGE_API_KEY` secret
+- Called server-side (Next.js process) — API key never exposed to the Vercel sandbox
+- Capabilities: generate embedding vectors, cosine similarity comparison, semantic ranking via `compareAgainst` parameter
+- Agent is instructed in the system prompt to use it for: semantic code search, finding related files, duplicate detection, and helping users build semantic search / RAG features into their apps
+- Tailwind v4 note added to system prompt: `tailwind.config.ts` does not exist in Next.js 16 projects — config lives in `globals.css` under `@theme`
+
+### 11. Big Pickle Empty-Response Handling (`packages/agent/models.ts`, `apps/web/app/workflows/chat.ts`)
+- **Root cause**: MiniMax M2.5 (Big Pickle) returns `finishReason: "other"` with `outputTokens: 0` when given a large multi-turn tool context (9000+ tokens, 11 tools) after tool execution — the second LLM call within a step (tool results → final response) silently produces nothing
+- **Fix A** (`models.ts`): Wrapped `opencodeProvider.chat(modelName)` with `wrapLanguageModel` + `defaultSettingsMiddleware({ settings: { maxTokens: 16384 } })` — forces the model to know it must generate up to 16 K tokens, preventing silent empty returns
+- **Fix B** (`chat.ts` `runAgentStep`): When `finishReason === "other"` AND `stepUsage.outputTokens === 0`, writes an `{ type: "error", errorText: "..." }` chunk to the UI stream so the user sees a clear error message instead of an empty chat bubble (which caused "Worker error: {} {}" in the browser)
+- **Stale stream note**: When the server is restarted mid-workflow, the chat may show "Thinking..." indefinitely. The `reconcileExistingActiveStream` function (in `apps/web/app/api/chat/route.ts`) auto-clears stale stream IDs from Redis/DB when a new message is sent to the same chat — no code change required; just send a follow-up message to unstick it
+
+### 12. Coding Agent Intelligence Upgrade (`packages/agent/system-prompt.ts`, `packages/agent/tools/think.ts`)
+- **ThinkTool** (inspired by OpenHands): New `think` tool registered in agent toolset — lets the agent brainstorm, reason through problems, and organize hypotheses without executing code. Used for complex debugging, architecture decisions, and multi-approach analysis.
+- **Problem-Solving Workflow** (OpenHands): Structured 5-step approach: EXPLORATION → ANALYSIS → TESTING → IMPLEMENTATION → VERIFICATION
+- **Troubleshooting Protocol** (OpenHands): When stuck after repeated attempts, agent reflects on 5-7 possible causes, assesses likelihood, and methodically addresses the most likely ones
+- **Efficiency Section** (OpenHands/OpenCode): Agent instructed to combine bash commands, batch independent tool calls, and early-stop exploration once enough context is gathered
+- **File System Guidelines** (OpenHands): Never create versioned duplicates (file_fix.py, file_v2.py), always modify originals, clean up temp files
+- **Process Management** (OpenHands): Never use `pkill -f keyword` — always find specific PID first
+- **Code Quality** (OpenHands): Minimal comments, understand before changing, split large functions, imports at top
+- **Technical Philosophy** (OpenHands/Torvalds): Good taste (eliminate edge cases > add conditionals), pragmatism (solve real problems), simplicity (three levels of indentation max), never break what works, data structures first
+- Sources: OpenHands CodeAct agent, OpenCode (anomalyco), Goose (AAIF), vercel-labs/open-agents
+
+### 13. Firecrawl Competitor Research & Design Cloning (`packages/agent/tools/firecrawl.ts`, `packages/agent/system-prompt.ts`)
+- **Two new tools** registered in the agent toolset:
+  - `firecrawl_scrape`: Scrapes a website using the Firecrawl API to extract screenshots, markdown content, images, icons, metadata, and links
+  - `firecrawl_search`: Searches the web via Firecrawl to find competitor websites by category
+- **Requires `FIRECRAWL_API_KEY`** environment secret — gracefully skips if not set
+- **Mandatory first-prompt workflow**: When a user's first message describes a product/app/website to build, the agent automatically:
+  1. Identifies the product category and top competitors
+  2. Uses `firecrawl_search` to find the competitor's website
+  3. Uses `firecrawl_scrape` to screenshot and extract content/images/structure from the competitor
+  4. Clones the competitor's design patterns (layout, colors, typography, spacing) while modifying branding, names, and copy to match the user's product
+- The Firecrawl tools execute via server-side `fetch()` in the Next.js process (API key never exposed to sandbox)
+- Screenshot URLs, extracted images, OG images, and favicons from the competitor are made available for the agent to use as visual references
+
+### 14. Dev Server & Code Editor Reliability Fixes
+- **EADDRINUSE fix** (`apps/web/app/api/sessions/[sessionId]/dev-server/route.ts`): Added `isDevServerPortInUse` check before launching — if port is already occupied by a known dev framework process (next/vite/astro/remix/nuxt/node), returns success with the preview URL instead of trying to start a conflicting server. Prevents crashes when the agent starts a server via `bash { detached: true }` before the user clicks "Run Dev Server"
+- **Retry logic** (`use-dev-server.ts`, `use-code-editor.ts`): Both hooks now retry up to 3 times (with 2s backoff) on 409/500 errors or network failures before showing an error. Handles transient sandbox connectivity issues gracefully
+- **System prompt framer-motion consistency**: Removed framer-motion from scaffolding step, HeroUI install, package examples, and visual effects section. All now consistently direct to CSS animations on first build with framer-motion reserved for follow-up iterations
+- **New anti-patterns 13-14**: Banned "Live Preview" placeholder pages and hardcoded localhost URLs in generated content
+
+### 15. Code Generation "2 Files Only" Fix (`packages/agent/tools/firecrawl.ts`, `packages/agent/system-prompt.ts`, `apps/web/app/workflows/chat.ts`)
+- **Root causes identified**:
+  1. Firecrawl scrape returned up to 30K chars of markdown + 50 links + 20 images, consuming massive context budget
+  2. No explicit minimum file count — model assumed 1-2 files = "done"
+  3. `finishReason: "length"` (output token exhaustion) stopped the workflow loop entirely
+- **Fix A — Context budget** (`firecrawl.ts`): Reduced `MAX_CONTENT_LENGTH` from 30,000 to 12,000 chars; links from 50→15; images from 20→5; default formats changed from `["markdown", "screenshot", "links"]` to `["markdown", "screenshot"]`
+- **Fix B — Minimum deliverable** (`system-prompt.ts`): Added "Minimum Deliverable" section requiring at least 5 files (package.json, layout, globals.css, page, components). Placeholder pages explicitly called out as failures
+- **Fix C — Design brief workflow** (`system-prompt.ts`): Updated Firecrawl competitor workflow to use `think` tool to extract a concise design brief from scraped data, then discard the raw content — prevents context bloat from carrying 12K of raw markdown through subsequent tool calls
+- **Fix D — Length continuation** (`chat.ts`): Workflow loop now continues on `finishReason: "length"` (output token exhaustion) instead of stopping. Added progress guard: after 3 consecutive `finishReason: "length"` stops, breaks to prevent infinite loops
+
+### 16. GSAP Animation Skills (`packages/agent/skills/bundled/gsap.ts`, `packages/agent/tools/skill.ts`, `packages/agent/system-prompt.ts`)
+- **8 official GSAP skills** bundled with the agent, sourced from https://github.com/greensock/gsap-skills:
+  - `gsap-core` — Tweens, easing, stagger, defaults, transforms, autoAlpha, matchMedia
+  - `gsap-timeline` — Timelines, position parameter, labels, nesting, playback control
+  - `gsap-scrolltrigger` — ScrollTrigger, pinning, scrub, triggers, batch, refresh
+  - `gsap-plugins` — Flip, Draggable, SplitText, ScrollSmoother, DrawSVG, MorphSVG, MotionPath
+  - `gsap-react` — useGSAP hook, refs, context, cleanup, SSR
+  - `gsap-utils` — clamp, mapRange, snap, toArray, wrap, pipe, distribute
+  - `gsap-performance` — Transforms, will-change, batching, quickTo
+  - `gsap-frameworks` — Vue, Svelte lifecycle, scoping, cleanup
+- **Bundled skills architecture**: New `bundledContent` field on `SkillMetadata` allows skills to ship with the agent package instead of requiring sandbox filesystem access. The skill tool checks `bundledContent` first; if present, serves it directly without reading from sandbox.
+- **Merge logic**: Both the chat runtime (`apps/web/app/api/chat/_lib/runtime.ts`) and skills API route (`apps/web/app/api/sessions/[sessionId]/skills/route.ts`) merge bundled skills with discovered sandbox skills, with discovered skills taking priority. Bundled skills are always available regardless of cache state.
+- **System prompt update**: LAW 8 (Motion Design) now prioritizes GSAP over Framer Motion for animations. Includes a GSAP Quick Start code block for React and lists all 8 available skill names. Agent is instructed to call `skill("gsap-react")` etc. before writing GSAP code.
+
+### 17. UI/UX Pro Max Design Intelligence (`packages/agent/skills/bundled/ui-ux.ts`, `packages/agent/system-prompt.ts`)
+- **7 bundled UI/UX skills** sourced from https://github.com/nextlevelbuilder/ui-ux-pro-max-skill (MIT License):
+  - `ui-ux-design` — Core design workflow, 290 QA rules across 10 categories, common professional UI rules, pre-delivery checklist
+  - `ui-ux-styles` — 67 UI styles database (Minimalism, Glassmorphism, Neumorphism, Brutalism, 3D, Vibrant, Dark Mode OLED, Claymorphism, Aurora UI, Liquid Glass, etc.) with colors, CSS keywords, implementation checklists
+  - `ui-ux-colors` — 161 product-matched color palettes with full semantic token sets (Primary, Secondary, Accent, Background, Foreground, Card, Muted, Border, Destructive, Ring)
+  - `ui-ux-typography` — 57 curated font pairings with Google Fonts URLs, CSS imports, and Tailwind configurations
+  - `ui-ux-products` — 161 product type recommendations mapping to styles, landing patterns, dashboard styles, color strategies
+  - `ui-ux-landing` — 30 landing page structure patterns with CTA placement, color strategy, and conversion optimization
+  - `ui-ux-charts` — 25 chart type recommendations with accessibility grades, library suggestions, data volume thresholds
+- **System prompt update**: Design Quality Standards section now includes a table of all 7 UI/UX skills with usage instructions. Agent is instructed to follow a design workflow: products → styles → colors → typography → checklist.
+- **Key rules enforced**: No emoji icons (use SVG), 4.5:1 contrast ratio, 44pt touch targets, 4/8dp spacing rhythm, semantic color tokens, pre-delivery checklist
+
+### 18. Mandatory Skill Usage Enforcement (`packages/agent/system-prompt.ts`, `packages/agent/tools/skill.ts`)
+- **Root cause**: Agent ignored bundled skills because instructions were suggestive, not mandatory. Agent would write UI/animation code without calling `skill()` first.
+- **Fix A — Core prompt rule** (`system-prompt.ts`): Added "Mandatory Skill Usage" section near the top of the system prompt (after Problem-Solving Workflow). Uses MUST/BEFORE/FIRST language with specific triggers: UI work → ui-ux-products/colors/typography, animations → gsap-react/scrolltrigger, landing pages → ui-ux-landing, charts → ui-ux-charts.
+- **Fix B — LAW 8 strengthened** (`system-prompt.ts`): GSAP section now says "MANDATORY: You MUST call the skill tool" with itemized skill-per-use-case list instead of a parenthetical suggestion.
+- **Fix C — UI/UX section strengthened** (`system-prompt.ts`): Design workflow changed from "Design workflow" to "MANDATORY design workflow" with "call these skills BEFORE writing any code" language.
+- **Fix D — Skills section reinforced** (`system-prompt.ts`): Bottom skills section now has a "CRITICAL" block repeating the mandatory triggers.
+- **Fix E — Tool description rewritten** (`skill.ts`): `skillTool` description changed from "Execute a skill within the main conversation" to "Execute a skill to load expert knowledge BEFORE writing code" with "MANDATORY skill loading triggers" list at the top of the tool description.
+
+### 19. Media Search Tool (`packages/agent/tools/media.ts`, `packages/agent/system-prompt.ts`)
+- **New `media_search` tool** registered in the agent's toolset — lets the agent search for high-quality stock photos and videos
+- **Pexels API integration**: When `PEXELS_API_KEY` is set, searches the Pexels API for photos and videos matching the agent's query. Returns direct CDN URLs, dimensions, alt text, photographer credits, and multiple size variants
+- **Curated fallback**: When no API key is set, falls back to a curated library of 60+ hand-picked Unsplash CDN URLs across 12 categories (technology, business, nature, people, food, architecture, abstract, workspace, health, travel, education, finance). Category matching uses keyword analysis of the search query
+- **Video support**: Searches for stock videos via Pexels, returns video URLs with poster images — perfect for hero section video backgrounds
+- **System prompt enforcement**: Agent is instructed to ALWAYS call `media_search` before writing `<img>` tags or `<video>` elements. The "Images" section was renamed to "Images & Videos — Use Real Media, Never Placeholders" with mandatory usage instructions
+- **Added to Mandatory Skill Usage section**: `media_search` is now listed alongside skill requirements as a mandatory pre-code step for any page with visual content
+- Tool executes server-side in the Next.js process (API key never exposed to sandbox)
+
+### 20. Community Bundled Skills (`packages/agent/skills/bundled/anthropics.ts`, `vercel.ts`, `bencium.ts`, `accesslint.ts`)
+- **10 new bundled skills** integrated from 4 community sources, bringing total bundled skills to 25+:
+- **Anthropic** (`anthropics.ts`):
+  - `frontend-design` — Distinctive, production-grade frontend design with bold aesthetic direction. Anti-"AI slop" guidelines
+- **Vercel** (`vercel.ts`):
+  - `vercel-react-best-practices` — 70 React/Next.js performance rules across 8 categories (waterfalls, bundle size, server-side, re-renders, rendering, JS perf, advanced patterns)
+  - `vercel-react-view-transitions` — React View Transition API guide (<ViewTransition>, addTransitionType, CSS pseudo-elements, shared element morphs, Next.js integration)
+  - `vercel-composition-patterns` — React composition patterns (compound components, boolean prop avoidance, context providers, React 19 APIs)
+- **Bencium** (`bencium.ts`):
+  - `bencium-impact-designer` — Comprehensive innovative design skill with 30+ aesthetic tone options, anti-sameness protocol, visual effects checklists, UX patterns, interaction design
+  - `design-audit` — Systematic UI/UX visual audit skill with 15-dimension audit protocol, reduction filter, 3-phase implementation plan
+  - `ui-typography` — Professional typography rules from Butterick's Practical Typography. Covers curly quotes, dashes, spacing, hierarchy, responsive web typography, JSX/React character handling
+- **AccessLint** (`accesslint.ts`):
+  - `contrast-checker` — WCAG 2.1 color contrast analyzer (text 4.5:1, large text 3:1, UI components 3:1). Adapted from MCP tool references to manual analysis guidelines
+  - `use-of-color` — WCAG 1.4.1 Use of Color analyzer. Detects 7 violation types (links, form validation, required fields, status indicators, hover/focus, data viz, color-coded categories)
+  - `a11y-refactor` — Accessibility refactoring specialist. Simple fixes (alt text, ARIA labels) through complex fixes (focus traps, keyboard navigation, accessible tabs/accordions)
+- **System prompt updated**: Both the Mandatory Skill Usage section and the CRITICAL skills block now reference all new skills with specific trigger conditions
+- **Sources**: anthropics/skills, vercel-labs/agent-skills, bencium/bencium-marketplace, AccessLint/claude-marketplace
+
+## Architecture
+- **Frontend**: Next.js 16 App Router, React, Tailwind CSS
+- **Backend**: Next.js API routes + Vercel Workflows
+- **Database**: PostgreSQL (Neon) via Drizzle ORM
+- **Cache/Pub-Sub**: Redis (Upstash)
+- **Sandboxes**: Vercel Sandbox API (isolated Ubuntu containers for agent code execution)
+- **AI Models**: Static list (Big Pickle via zenmux.ai) + optional Vercel AI Gateway models
