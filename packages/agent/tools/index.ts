@@ -21,3 +21,4 @@ export { embedTool } from "./embed";
 export { thinkTool } from "./think";
 export { firecrawlScrapeTool, firecrawlSearchTool } from "./firecrawl";
 export { mediaSearchTool } from "./media";
+export { togetherImageTool } from "./together-image";

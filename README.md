@@ -96,6 +96,8 @@ VERCEL_PROJECT_PRODUCTION_URL=
 NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL=
 VERCEL_SANDBOX_BASE_SNAPSHOT_ID=
 ELEVENLABS_API_KEY=
+TOGETHER_API_KEY=
+TOGETHER_IMAGE_MODEL=
 TWENTY_FIRST_MCP_ENABLED=
 TWENTY_FIRST_API_KEY=
 TWENTY_FIRST_MCP_URL=
@@ -136,6 +138,7 @@ ICONIFY_MCP_TIMEOUT_MS=
 - `VERCEL_PROJECT_PRODUCTION_URL` / `NEXT_PUBLIC_VERCEL_PROJECT_PRODUCTION_URL`: canonical production URL for metadata and some callback behavior.
 - `VERCEL_SANDBOX_BASE_SNAPSHOT_ID`: override the default sandbox snapshot.
 - `ELEVENLABS_API_KEY`: voice transcription.
+- `TOGETHER_API_KEY`: enables premium image generation for UI workflows through the `together_image` tool. By default the app targets `google/flash-image-3.1` through Together AI, and `TOGETHER_IMAGE_MODEL` can override that model ID.
 - `TWENTY_FIRST_MCP_*`, `SHADCN_MCP_*`, `REACTBITS_MCP_*`, `MOTION_MCP_*`, `ICONS8_MCP_*`, and `ICONIFY_MCP_*`: optional deployment-level UI specialist integrations. When configured, the agent can research screenshots with Firecrawl, browse component registries, pull motion examples, and source icons through MCP instead of guessing.
 - `TWENTY_FIRST_API_KEY`, `MOTION_TOKEN`, `ICONS8_API_KEY`, and `REACTBITS_GITHUB_TOKEN`: provider-specific credentials for the UI stack when required.
 

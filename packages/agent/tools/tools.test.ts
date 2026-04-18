@@ -72,6 +72,7 @@ const { grepTool } = await import("./grep");
 const { readFileTool } = await import("./read");
 const { skillTool } = await import("./skill");
 const { taskTool } = await import("./task");
+const { togetherImageTool } = await import("./together-image");
 const { todoWriteTool } = await import("./todo");
 const { editFileTool, writeFileTool } = await import("./write");
 const { buildSystemPrompt } = await import("../system-prompt");
@@ -558,6 +559,33 @@ describe("tools execute behavior", () => {
       error:
         "Skill 'commit' cannot be invoked by the model (disable-model-invocation is set)",
     });
+  });
+
+  test("togetherImageTool returns a helpful error when Together is not configured", async () => {
+    const originalKey = process.env.TOGETHER_API_KEY;
+    delete process.env.TOGETHER_API_KEY;
+
+    try {
+      const result = await togetherImageTool.execute?.(
+        {
+          prompt: "Luxurious SaaS dashboard hero illustration",
+          width: 1536,
+          height: 1024,
+          count: 1,
+        },
+        executionOptions(),
+      );
+
+      expect(result).toEqual({
+        success: false,
+        error:
+          "TOGETHER_API_KEY environment variable is not set. Together image generation is unavailable.",
+      });
+    } finally {
+      if (originalKey !== undefined) {
+        process.env.TOGETHER_API_KEY = originalKey;
+      }
+    }
   });
 
   test("taskTool exposes both subagent types without approval gates", async () => {

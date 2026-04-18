@@ -26,6 +26,7 @@ import {
   skillTool,
   taskTool,
   thinkTool,
+  togetherImageTool,
   todoWriteTool,
   webFetchTool,
   writeFileTool,
@@ -89,6 +90,7 @@ const tools = {
   firecrawl_scrape: firecrawlScrapeTool,
   firecrawl_search: firecrawlSearchTool,
   media_search: mediaSearchTool,
+  together_image: togetherImageTool,
 } satisfies ToolSet;
 
 export const openHarnessAgent = new ToolLoopAgent({

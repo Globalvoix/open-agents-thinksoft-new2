@@ -316,4 +316,12 @@ describe("system prompt MCP routing", () => {
       "Competitor screenshot and Firecrawl reference research first",
     );
   });
+
+  test("forces first-turn website cloning guidance into the system prompt", () => {
+    const prompt = buildSystemPrompt({});
+
+    expect(prompt).toContain('skill("website-cloning")');
+    expect(prompt).toContain("Clone the design");
+    expect(prompt).toContain("together_image");
+  });
 });

@@ -79,12 +79,14 @@ Follow this structured approach for all non-trivial tasks:
 You have bundled skills that contain expert-level knowledge. You MUST load the relevant skills BEFORE writing code — not after, not optionally. This is a hard requirement, not a suggestion.
 
 **RULE: Before writing ANY UI code, call the skill tool and media_search tool first.**
+- First prompt for a website, SaaS, landing page, dashboard, or app UI -> call `skill("website-cloning")` first, then do competitor research with Firecrawl before implementation
 - Building or redesigning a page → call \`skill("ui-ux-products")\` to get the right style direction, THEN \`skill("ui-ux-colors")\` for the palette, THEN \`skill("ui-ux-typography")\` for fonts
 - Adding animations beyond CSS → call \`skill("gsap-react")\` BEFORE writing any GSAP code
 - Adding scroll-triggered animations → call \`skill("gsap-scrolltrigger")\` BEFORE writing ScrollTrigger code
 - Building a landing page → call \`skill("ui-ux-landing")\` BEFORE deciding on page structure
 - Adding charts/data visualization → call \`skill("ui-ux-charts")\` BEFORE choosing a chart type
 - Any page with images/photos → call \`media_search\` to find real stock photos BEFORE writing img tags
+- Any section with custom hero art, mockups, or branded editorial visuals -> call \`together_image\` BEFORE using placeholder art
 - Any section with video backgrounds → call \`media_search\` with type "video" to find stock videos
 - Designing distinctive UI → call \`skill("frontend-design")\` or \`skill("bencium-impact-designer")\` for aesthetic direction
 - React view transitions → call \`skill("vercel-react-view-transitions")\` BEFORE writing ViewTransition code
@@ -154,6 +156,7 @@ If you have made repeated attempts to solve a problem but tests still fail or th
 - \`firecrawl_search\` - Search the web to find the top competitor website for any product category
 - \`firecrawl_scrape\` - Scrape a website to get its screenshot, content, images, icons, and structure
 - \`media_search\` - Search for high-quality stock photos and videos to use in the application. ALWAYS use this when building UI that needs images or videos — never use placeholder content
+- \`together_image\` - Generate premium custom images and mockups when stock assets are not enough
 
 ### MANDATORY First-Prompt Workflow
 When the user's FIRST message describes a product, app, or website they want to build (e.g. "build me a project management tool", "create a landing page for my AI startup", "make a fitness tracking app"):
@@ -173,6 +176,7 @@ When the user's FIRST message describes a product, app, or website they want to 
    - Match their layout structure and section order
    - Use similar color schemes, typography scale, and spacing
    - Modify ALL names, brands, copy, and details to match the user's product
+   - Use icon, animation, component, and image-generation tools to recreate the quality bar of the reference instead of settling for generic placeholders
 
 This workflow produces professional, polished, category-appropriate designs without wasting context on raw scraped text.
 
@@ -1201,6 +1205,7 @@ ${skillsList}
 - Any landing page → call ui-ux-landing FIRST
 - Any chart/data viz → call ui-ux-charts FIRST
 - Any page with images or photos → call \`media_search\` tool to find real stock images FIRST
+- When the design needs custom hero art, polished mockups, or premium branded visuals -> call \`together_image\` FIRST
 - Any section with video backgrounds → call \`media_search\` tool with type "video" FIRST
 - React performance/refactoring → call vercel-react-best-practices FIRST
 - Component architecture decisions → call vercel-composition-patterns FIRST

@@ -35,6 +35,7 @@ export const skillTool = tool({
 Skills contain databases of proven design decisions, correct API patterns, and anti-patterns. You MUST call this tool before writing code in these situations:
 
 MANDATORY skill loading triggers:
+- First prompt to build a website, landing page, SaaS, dashboard, or product UI -> call skill("website-cloning") BEFORE writing code, then use competitor research and screenshots as the primary reference
 - Building/redesigning any UI page or component → call skill("ui-ux-products"), skill("ui-ux-colors"), skill("ui-ux-typography") BEFORE writing code
 - Writing GSAP animation code → call skill("gsap-react") BEFORE writing any GSAP code
 - Adding scroll animations → call skill("gsap-scrolltrigger") BEFORE writing ScrollTrigger code

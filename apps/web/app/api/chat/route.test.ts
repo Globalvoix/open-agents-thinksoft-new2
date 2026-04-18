@@ -48,6 +48,7 @@ let preferencesState = {
 };
 let cachedSkillsState: unknown = null;
 let discoverSkillDirsCalls: string[][] = [];
+let uiFirstTurnPreflightState: { customInstructions: string } | null = null;
 
 const compareAndSetChatActiveStreamIdSpy = mock(async () => {
   const nextResult = compareAndSetResults.shift();
@@ -160,6 +161,10 @@ mock.module("./_lib/persist-tool-results", () => ({
     persistAssistantMessagesWithToolResultsSpy,
 }));
 
+mock.module("./_lib/ui-first-turn-preflight", () => ({
+  buildUiFirstTurnPreflight: async () => uiFirstTurnPreflightState,
+}));
+
 mock.module("@/lib/db/sessions", () => ({
   compareAndSetChatActiveStreamId: compareAndSetChatActiveStreamIdSpy,
   countUserMessagesByUserId: async () => existingUserMessageCount,
@@ -257,6 +262,7 @@ describe("/api/chat route", () => {
     startCalls = [];
     cachedSkillsState = null;
     discoverSkillDirsCalls = [];
+    uiFirstTurnPreflightState = null;
     existingUserMessageCount = 0;
     existingChatMessage = null;
     preferencesState = {
@@ -350,6 +356,40 @@ describe("/api/chat route", () => {
         maxSteps: 500,
         agentOptions: expect.objectContaining({
           customInstructions: assistantFileLinkPrompt,
+        }),
+      }),
+    ]);
+  });
+
+  test("appends first-turn UI preflight instructions when available", async () => {
+    const { POST } = await routeModulePromise;
+    uiFirstTurnPreflightState = {
+      customInstructions:
+        "# Server-Side UI Preflight\nUse the cloned reference before implementation.",
+    };
+
+    const response = await POST(
+      createRequest(
+        JSON.stringify({
+          sessionId: "session-1",
+          chatId: "chat-1",
+          messages: [
+            {
+              id: "user-1",
+              role: "user",
+              parts: [{ type: "text", text: "Create a SaaS landing page" }],
+            },
+          ],
+        }),
+      ),
+    );
+
+    expect(response.ok).toBe(true);
+    expect(startCalls).toHaveLength(1);
+    expect(startCalls[0]?.[1]).toEqual([
+      expect.objectContaining({
+        agentOptions: expect.objectContaining({
+          customInstructions: `${assistantFileLinkPrompt}\n\n# Server-Side UI Preflight\nUse the cloned reference before implementation.`,
         }),
       }),
     ]);

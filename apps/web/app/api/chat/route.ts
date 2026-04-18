@@ -35,6 +35,7 @@ import {
 import { resolveChatModelSelection } from "./_lib/model-selection";
 import { parseChatRequestBody, requireChatIdentifiers } from "./_lib/request";
 import { createChatRuntime } from "./_lib/runtime";
+import { buildUiFirstTurnPreflight } from "./_lib/ui-first-turn-preflight";
 import { runAgentWorkflow } from "@/app/workflows/chat";
 import { persistAssistantMessagesWithToolResults } from "./_lib/persist-tool-results";
 
@@ -161,15 +162,27 @@ export async function POST(req: Request) {
     sessionId,
     sessionRecord,
   });
+  const uiFirstTurnPreflightPromise = buildUiFirstTurnPreflight({
+    chatId,
+    messages,
+  }).catch((error) => {
+    console.warn("UI first-turn preflight failed:", error);
+    return null;
+  });
   const preferencesPromise = getUserPreferences(userId).catch((error) => {
     console.error("Failed to load user preferences:", error);
     return null;
   });
 
-  const [{ sandbox, skills, mcpRuntime, uiDesignContext }, rawPreferences] =
+  const [
+    { sandbox, skills, mcpRuntime, uiDesignContext },
+    rawPreferences,
+    uiFirstTurnPreflight,
+  ] =
     await Promise.all([
       runtimePromise,
       preferencesPromise,
+      uiFirstTurnPreflightPromise,
     ]);
 
   const preferences = rawPreferences
@@ -211,6 +224,12 @@ export async function POST(req: Request) {
   const shouldAutoCreatePr =
     shouldAutoCommitPush &&
     (sessionRecord.autoCreatePrOverride ?? preferences?.autoCreatePr ?? false);
+  const customInstructions = [
+    assistantFileLinkPrompt,
+    uiFirstTurnPreflight?.customInstructions,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join("\n\n");
 
   // Start the durable workflow
   const run = await start(runAgentWorkflow, [
@@ -240,7 +259,7 @@ export async function POST(req: Request) {
           : {}),
         mcp: mcpRuntime.context,
         uiDesign: uiDesignContext,
-        customInstructions: assistantFileLinkPrompt,
+        customInstructions,
       },
       ...(shouldAutoCommitPush &&
         sessionRecord.repoOwner &&
