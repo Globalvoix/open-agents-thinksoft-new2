@@ -12,6 +12,7 @@ import {
 import type { SkillMetadata } from "./skills/types";
 import { buildSystemPrompt } from "./system-prompt";
 import type { UiDesignContextSummary } from "./ui-specialist";
+import type { UiStudioContextSummary } from "./ui-studio";
 import {
   askUserQuestionTool,
   bashTool,
@@ -55,6 +56,7 @@ const callOptionsSchema = z.object({
   mcpTools: z.custom<ToolSet>().optional(),
   mcp: z.custom<McpContextSummary>().optional(),
   uiDesign: z.custom<UiDesignContextSummary>().optional(),
+  uiStudio: z.custom<UiStudioContextSummary>().optional(),
 });
 
 export type OpenHarnessAgentCallOptions = z.infer<typeof callOptionsSchema>;
@@ -133,6 +135,7 @@ export const openHarnessAgent = new ToolLoopAgent({
     const skills = options.skills ?? [];
     const mcp = options.mcp;
     const uiDesign = options.uiDesign;
+    const uiStudio = options.uiStudio;
     const mergedTools = {
       ...(settings.tools ?? tools),
       ...(options.mcpTools ?? {}),
@@ -147,6 +150,7 @@ export const openHarnessAgent = new ToolLoopAgent({
       availableMcpServers: mcp?.servers,
       availableMcpTools: mcp?.tools,
       uiDesignContext: uiDesign,
+      uiStudioContext: uiStudio,
       modelId: mainSelection.id,
     });
 
@@ -164,6 +168,7 @@ export const openHarnessAgent = new ToolLoopAgent({
         mcp,
         mcpTools: options.mcpTools,
         uiDesign,
+        uiStudio,
         model: callModel,
         subagentModel,
       },

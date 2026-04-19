@@ -162,28 +162,23 @@ export async function POST(req: Request) {
     sessionId,
     sessionRecord,
   });
-  const uiFirstTurnPreflightPromise = buildUiFirstTurnPreflight({
-    chatId,
-    messages,
-  }).catch((error) => {
-    console.warn("UI first-turn preflight failed:", error);
-    return null;
-  });
   const preferencesPromise = getUserPreferences(userId).catch((error) => {
     console.error("Failed to load user preferences:", error);
     return null;
   });
 
   const [
-    { sandbox, skills, mcpRuntime, uiDesignContext },
+    { sandbox, skills, mcpRuntime, uiDesignContext, uiStudioContext },
     rawPreferences,
-    uiFirstTurnPreflight,
-  ] =
-    await Promise.all([
-      runtimePromise,
-      preferencesPromise,
-      uiFirstTurnPreflightPromise,
-    ]);
+  ] = await Promise.all([runtimePromise, preferencesPromise]);
+  const uiFirstTurnPreflight = await buildUiFirstTurnPreflight({
+    chatId,
+    messages,
+    uiStudioContext,
+  }).catch((error) => {
+    console.warn("UI first-turn preflight failed:", error);
+    return null;
+  });
 
   const preferences = rawPreferences
     ? sanitizeUserPreferencesForSession(rawPreferences, session, req.url)
@@ -230,6 +225,12 @@ export async function POST(req: Request) {
   ]
     .filter((value): value is string => Boolean(value))
     .join("\n\n");
+  const uiStudio = uiFirstTurnPreflight?.uiStudioProject
+    ? {
+        ...uiStudioContext,
+        activeProject: uiFirstTurnPreflight.uiStudioProject,
+      }
+    : uiStudioContext;
 
   // Start the durable workflow
   const run = await start(runAgentWorkflow, [
@@ -259,6 +260,7 @@ export async function POST(req: Request) {
           : {}),
         mcp: mcpRuntime.context,
         uiDesign: uiDesignContext,
+        uiStudio,
         customInstructions,
       },
       ...(shouldAutoCommitPush &&

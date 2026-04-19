@@ -195,6 +195,15 @@ export function getUiDesignContext(
   return context?.uiDesign;
 }
 
+export function getUiStudioContext(
+  experimental_context: unknown,
+): AgentContext["uiStudio"] | undefined {
+  const context = isAgentContext(experimental_context)
+    ? experimental_context
+    : undefined;
+  return context?.uiStudio;
+}
+
 /**
  * Escape a string for safe use in a single-quoted shell argument.
  * Wraps the string in single quotes and escapes any embedded single quotes.

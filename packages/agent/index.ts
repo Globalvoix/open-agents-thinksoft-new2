@@ -28,6 +28,18 @@ export type {
 export type { BuildSystemPromptOptions } from "./system-prompt";
 export { buildSystemPrompt } from "./system-prompt";
 export type { UiDesignContextSummary } from "./ui-specialist";
+export type {
+  UiAssetFamily,
+  UiComponentGenome,
+  UiIconLanguage,
+  UiLayoutBlueprint,
+  UiMotionStoryboard,
+  UiProviderCandidate,
+  UiRemixInstruction,
+  UiStudioContextSummary,
+  UiStudioProject,
+  UiStyleDna,
+} from "./ui-studio";
 export {
   discoverMcpRuntime,
   getMcpServerConfigsFromEnv,

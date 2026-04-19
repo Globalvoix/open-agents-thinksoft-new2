@@ -18,6 +18,7 @@ import {
   getSandboxContext,
   getSubagentModel,
   getUiDesignContext,
+  getUiStudioContext,
 } from "./utils";
 
 const subagentTypeSchema = z.enum(SUBAGENT_TYPES);
@@ -100,6 +101,7 @@ IMPORTANT:
     const mcp = getMcpContext(experimental_context);
     const mcpTools = getMcpTools(experimental_context);
     const uiDesign = getUiDesignContext(experimental_context);
+    const uiStudio = getUiStudioContext(experimental_context);
     const subagentModelId = typeof model === "string" ? model : model.modelId;
 
     const subagent = SUBAGENT_REGISTRY[subagentType].agent;
@@ -121,6 +123,11 @@ IMPORTANT:
         ...(uiDesign
           ? {
               uiDesign,
+            }
+          : {}),
+        ...(uiStudio
+          ? {
+              uiStudio,
             }
           : {}),
       },

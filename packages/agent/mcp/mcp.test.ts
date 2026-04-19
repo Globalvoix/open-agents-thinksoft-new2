@@ -17,6 +17,7 @@ const originalEnv = {
   REACTBITS_MCP_ENABLED: process.env.REACTBITS_MCP_ENABLED,
   REACTBITS_MCP_COMMAND: process.env.REACTBITS_MCP_COMMAND,
   REACTBITS_MCP_ARGS: process.env.REACTBITS_MCP_ARGS,
+  UI_STUDIO_MCP_CATALOG: process.env.UI_STUDIO_MCP_CATALOG,
 };
 
 afterEach(() => {
@@ -33,6 +34,7 @@ afterEach(() => {
   process.env.REACTBITS_MCP_ENABLED = originalEnv.REACTBITS_MCP_ENABLED;
   process.env.REACTBITS_MCP_COMMAND = originalEnv.REACTBITS_MCP_COMMAND;
   process.env.REACTBITS_MCP_ARGS = originalEnv.REACTBITS_MCP_ARGS;
+  process.env.UI_STUDIO_MCP_CATALOG = originalEnv.UI_STUDIO_MCP_CATALOG;
 });
 
 describe("MCP config", () => {
@@ -74,6 +76,31 @@ describe("MCP config", () => {
       enabled: true,
       normalization: "animation_library",
       providerKind: "animation",
+    });
+  });
+
+  test("adds open-ended UI studio MCP catalog entries from env", () => {
+    process.env.UI_STUDIO_MCP_CATALOG = JSON.stringify([
+      {
+        id: "custom-animation-lab",
+        name: "Custom Animation Lab",
+        providerKind: "animation",
+        normalization: "animation_library",
+        url: "https://mcp.example.com",
+      },
+    ]);
+
+    const configs = getMcpServerConfigsFromEnv();
+    const custom = configs.find((entry) => entry.id === "custom-animation-lab");
+
+    expect(custom).toMatchObject({
+      enabled: true,
+      providerKind: "animation",
+      normalization: "animation_library",
+      transport: {
+        type: "http",
+        url: "https://mcp.example.com",
+      },
     });
   });
 

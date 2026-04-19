@@ -8,6 +8,7 @@ import { grepTool } from "../tools/grep";
 import { readFileTool } from "../tools/read";
 import { editFileTool, writeFileTool } from "../tools/write";
 import type { SandboxExecutionContext } from "../types";
+import type { UiStudioContextSummary } from "../ui-studio";
 import {
   SUBAGENT_BASH_RULES,
   SUBAGENT_COMPLETE_TASK_RULES,
@@ -87,6 +88,7 @@ const callOptionsSchema = z.object({
   model: z.custom<LanguageModel>().describe("Language model for this subagent"),
   mcpTools: z.custom<ToolSet>().optional(),
   mcp: z.custom<McpContextSummary>().optional(),
+  uiStudio: z.custom<UiStudioContextSummary>().optional(),
 });
 
 export type DesignCallOptions = z.infer<typeof callOptionsSchema>;
@@ -139,6 +141,7 @@ ${SUBAGENT_REMINDER}`,
         sandbox,
         model,
         mcp: options.mcp,
+        uiStudio: options.uiStudio,
       },
     };
   },

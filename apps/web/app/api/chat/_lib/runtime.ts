@@ -14,6 +14,7 @@ import { getSandboxSkillDirectories } from "@/lib/skills/directories";
 import { syncExternalUiSkillRepos } from "@/lib/skills/external-ui-skills";
 import { getCachedSkills, setCachedSkills } from "@/lib/skills-cache";
 import { buildUiDesignContext } from "@/lib/ui-design/context";
+import { buildUiStudioContext } from "@/lib/ui-studio/context";
 import type { SessionRecord } from "./chat-context";
 
 type DiscoveredSkills = Awaited<ReturnType<typeof discoverSkills>>;
@@ -88,6 +89,7 @@ export async function createChatRuntime(params: {
   skills: DiscoveredSkills;
   mcpRuntime: Awaited<ReturnType<typeof discoverMcpRuntime>>;
   uiDesignContext: Awaited<ReturnType<typeof buildUiDesignContext>>;
+  uiStudioContext: Awaited<ReturnType<typeof buildUiStudioContext>>;
 }> {
   const { userId, sessionId, sessionRecord } = params;
 
@@ -134,12 +136,16 @@ export async function createChatRuntime(params: {
     ),
     discoverMcpRuntime(),
   ]);
-  const uiDesignContext = await buildUiDesignContext({ sandbox, skills });
+  const [uiDesignContext, uiStudioContext] = await Promise.all([
+    buildUiDesignContext({ sandbox, skills }),
+    buildUiStudioContext({ sandbox, skills, mcp: mcpRuntime.context }),
+  ]);
 
   return {
     sandbox,
     skills,
     mcpRuntime,
     uiDesignContext,
+    uiStudioContext,
   };
 }

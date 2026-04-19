@@ -5,6 +5,7 @@ import type { McpContextSummary } from "./mcp/types";
 import type { AgentSandboxContext } from "./open-harness-agent";
 import type { SkillMetadata } from "./skills/types";
 import type { UiDesignContextSummary } from "./ui-specialist";
+import type { UiStudioContextSummary } from "./ui-studio";
 
 export const todoStatusSchema = z.enum(["pending", "in_progress", "completed"]);
 export type TodoStatus = z.infer<typeof todoStatusSchema>;
@@ -26,6 +27,7 @@ export interface AgentContext {
   mcp?: McpContextSummary;
   mcpTools?: ToolSet;
   uiDesign?: UiDesignContextSummary;
+  uiStudio?: UiStudioContextSummary;
 }
 
 export interface SandboxExecutionContext {

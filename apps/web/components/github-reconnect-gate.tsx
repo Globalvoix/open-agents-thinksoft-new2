@@ -10,9 +10,9 @@ import { GitHubReconnectDialog } from "./github-reconnect-dialog";
 export function GitHubReconnectGate() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const { isAuthenticated, loading } = useSession();
+  const { isAuthenticated, hasGitHub, loading } = useSession();
   const { reconnectRequired, reason, isLoading } = useGitHubConnectionStatus({
-    enabled: isAuthenticated,
+    enabled: isAuthenticated && hasGitHub,
   });
 
   const reconnectUrl = useMemo(() => {
@@ -21,7 +21,13 @@ export function GitHubReconnectGate() {
     return buildGitHubReconnectUrl(next);
   }, [pathname, searchParams]);
 
-  if (loading || !isAuthenticated || isLoading || !reconnectRequired) {
+  if (
+    loading ||
+    !isAuthenticated ||
+    !hasGitHub ||
+    isLoading ||
+    !reconnectRequired
+  ) {
     return null;
   }
 

@@ -36,6 +36,114 @@ function hasRemoteOrCommandConfig(prefix: string): boolean {
   );
 }
 
+function parseJsonCatalogEnv(): McpServerConfig[] {
+  const raw = process.env.UI_STUDIO_MCP_CATALOG?.trim();
+  if (!raw) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    return parsed.flatMap((entry) => {
+      if (!entry || typeof entry !== "object") {
+        return [];
+      }
+
+      const record = entry as Record<string, unknown>;
+      const id = typeof record.id === "string" ? record.id : undefined;
+      const name = typeof record.name === "string" ? record.name : undefined;
+      const timeoutMs =
+        typeof record.timeoutMs === "number" && record.timeoutMs > 0
+          ? record.timeoutMs
+          : 45_000;
+
+      if (!id || !name) {
+        return [];
+      }
+
+      const providerKind =
+        record.providerKind === "component" ||
+        record.providerKind === "animation" ||
+        record.providerKind === "icon" ||
+        record.providerKind === "generic"
+          ? record.providerKind
+          : "generic";
+      const normalization =
+        record.normalization === "21st" ||
+        record.normalization === "component_registry" ||
+        record.normalization === "animation_library" ||
+        record.normalization === "icon_library" ||
+        record.normalization === "generic"
+          ? record.normalization
+          : "generic";
+
+      if (typeof record.url === "string" && record.url.trim()) {
+        return [
+          {
+            id,
+            name,
+            enabled: true,
+            timeoutMs,
+            transport: {
+              type: "http" as const,
+              url: record.url.trim(),
+              headers:
+                record.headers && typeof record.headers === "object"
+                  ? (record.headers as Record<string, string>)
+                  : undefined,
+            },
+            normalization,
+            providerKind,
+            providerLabel:
+              typeof record.providerLabel === "string"
+                ? record.providerLabel
+                : undefined,
+          } satisfies McpServerConfig,
+        ];
+      }
+
+      if (typeof record.command === "string" && record.command.trim()) {
+        return [
+          {
+            id,
+            name,
+            enabled: true,
+            timeoutMs,
+            transport: {
+              type: "stdio" as const,
+              command: record.command.trim(),
+              args: Array.isArray(record.args)
+                ? record.args.filter(
+                    (value): value is string => typeof value === "string",
+                  )
+                : undefined,
+              env:
+                record.env && typeof record.env === "object"
+                  ? (record.env as Record<string, string>)
+                  : undefined,
+            },
+            normalization,
+            providerKind,
+            providerLabel:
+              typeof record.providerLabel === "string"
+                ? record.providerLabel
+                : undefined,
+          } satisfies McpServerConfig,
+        ];
+      }
+
+      return [];
+    });
+  } catch (error) {
+    console.warn("Failed to parse UI_STUDIO_MCP_CATALOG:", error);
+    return [];
+  }
+}
+
 function buildServerConfig(params: {
   prefix: string;
   id: string;
@@ -191,5 +299,6 @@ export function getMcpServerConfigsFromEnv(): McpServerConfig[] {
       providerKind: "icon",
       providerLabel: "Iconify",
     }),
+    ...parseJsonCatalogEnv(),
   ];
 }

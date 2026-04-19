@@ -2,6 +2,7 @@ import { buildSubagentSummaryLines } from "./subagents/registry";
 import type { McpDiscoveredTool, McpServerAvailability } from "./mcp";
 import type { SkillMetadata } from "./skills/types";
 import type { UiDesignContextSummary } from "./ui-specialist";
+import type { UiStudioContextSummary } from "./ui-studio";
 
 // ---------------------------------------------------------------------------
 // Model family detection
@@ -1162,6 +1163,7 @@ export interface BuildSystemPromptOptions {
   availableMcpServers?: McpServerAvailability[];
   availableMcpTools?: McpDiscoveredTool[];
   uiDesignContext?: UiDesignContextSummary;
+  uiStudioContext?: UiStudioContextSummary;
   modelId?: string;
 }
 
@@ -1323,6 +1325,70 @@ UI-specialist rules:
 - Use json-render only for schema-constrained or catalog-driven UI tasks where a guarded renderer is clearly beneficial; it is not the default path for normal component work`;
 }
 
+function buildUiStudioPrompt(
+  uiStudioContext: UiStudioContextSummary | undefined,
+): string {
+  if (!uiStudioContext) {
+    return "";
+  }
+
+  const providerLines =
+    uiStudioContext.providerCandidates.length > 0
+      ? uiStudioContext.providerCandidates
+          .slice(0, 12)
+          .map(
+            (provider) =>
+              `- ${provider.name} [${provider.category}/${provider.sourceType}] - ${provider.status}: ${provider.rationale}`,
+          )
+          .join("\n")
+      : "- No provider candidates discovered yet";
+
+  const designMemoryLines =
+    uiStudioContext.designMemoryPaths.length > 0
+      ? uiStudioContext.designMemoryPaths.map((path) => `- ${path}`).join("\n")
+      : "- No design memory files found yet";
+
+  const studioTeamLines =
+    uiStudioContext.studioSubagents.length > 0
+      ? uiStudioContext.studioSubagents.map((agent) => `- ${agent}`).join("\n")
+      : "- No UI studio roles available";
+
+  const activeProject = uiStudioContext.activeProject;
+  const activeProjectPrompt = activeProject
+    ? `
+Active UI studio project:
+- Product brief: ${activeProject.productBrief}
+- Audience: ${activeProject.audience}
+- Market position: ${activeProject.marketPosition}
+- Style DNA concept: ${activeProject.styleDna.concept}
+- Distinguishing idea: ${activeProject.styleDna.distinguishingIdea}
+- Reference: ${activeProject.referenceUrl ?? "none"}
+- Remix modes: ${activeProject.remixPlan.map((entry) => entry.mode).join(", ") || "none"}`
+    : "";
+
+  return `
+## UI Studio Platform
+
+Treat serious frontend requests as a UI studio workflow rather than a single code-writing step.
+
+UI studio team:
+${studioTeamLines}
+
+Provider marketplace candidates:
+${providerLines}
+
+Design memory:
+${designMemoryLines}
+${activeProjectPrompt}
+
+UI studio rules:
+- Invent and compare page structures before coding instead of defaulting to a repeated SaaS template
+- Treat components, icons, assets, and motion systems as a cohesive package, not isolated choices
+- Use provider candidates only when they improve the result; reject anything that pushes the output toward template-like or registry-flavored UI
+- Prefer custom composition, bespoke assets, and a coherent visual language over surface-level palette swaps
+- When an active UI studio project exists, use its layout blueprints, style DNA, motion storyboard, icon language, asset plan, and remix instructions as the primary build brief`;
+}
+
 /**
  * Build the complete system prompt, with model-family-specific behavioral tuning.
  *
@@ -1382,6 +1448,11 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
   const uiDesignPrompt = buildUiDesignPrompt(options.uiDesignContext);
   if (uiDesignPrompt) {
     parts.push(uiDesignPrompt);
+  }
+
+  const uiStudioPrompt = buildUiStudioPrompt(options.uiStudioContext);
+  if (uiStudioPrompt) {
+    parts.push(uiStudioPrompt);
   }
 
   return parts.join("\n");

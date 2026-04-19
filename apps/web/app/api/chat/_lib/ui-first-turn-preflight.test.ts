@@ -125,8 +125,12 @@ describe("ui-first-turn-preflight", () => {
     expect(result?.competitorScreenshot).toBe(
       "https://cdn.example.com/linear-home.png",
     );
-    expect(result?.customInstructions).toContain("# Server-Side UI Preflight");
-    expect(result?.customInstructions).toContain("Call `skill(\"website-cloning\")`");
+    expect(result?.customInstructions).toContain("# Server-Side UI Studio Project");
     expect(result?.customInstructions).toContain("https://linear.app");
+    expect(result?.uiStudioProject.layoutBlueprints.length).toBeGreaterThan(1);
+    expect(result?.uiStudioProject.assetPlan[0]?.role).toBe("hero-art");
+    expect(result?.uiStudioProject.motionStoryboard.beats[0]?.phase).toBe(
+      "first-paint",
+    );
   });
 });

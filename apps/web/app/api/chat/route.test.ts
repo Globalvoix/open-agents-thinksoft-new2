@@ -48,7 +48,12 @@ let preferencesState = {
 };
 let cachedSkillsState: unknown = null;
 let discoverSkillDirsCalls: string[][] = [];
-let uiFirstTurnPreflightState: { customInstructions: string } | null = null;
+let uiFirstTurnPreflightState:
+  | {
+      customInstructions: string;
+      uiStudioProject?: Record<string, unknown>;
+    }
+  | null = null;
 
 const compareAndSetChatActiveStreamIdSpy = mock(async () => {
   const nextResult = compareAndSetResults.shift();
@@ -365,7 +370,45 @@ describe("/api/chat route", () => {
     const { POST } = await routeModulePromise;
     uiFirstTurnPreflightState = {
       customInstructions:
-        "# Server-Side UI Preflight\nUse the cloned reference before implementation.",
+        "# Server-Side UI Studio Project\nUse the studio brief before implementation.",
+      uiStudioProject: {
+        productBrief: "Create a SaaS landing page",
+        audience: "product teams",
+        marketPosition: "premium",
+        layoutBlueprints: [],
+        styleDna: {
+          concept: "bold product theater",
+          tone: "premium",
+          typographyMood: "editorial",
+          paletteDirection: "high contrast",
+          surfaceLanguage: "layered",
+          shapeLanguage: "crisp",
+          motionMood: "structural",
+          backgroundStyle: "atmospheric",
+          distinguishingIdea: "avoid template output",
+        },
+        assetPlan: [],
+        motionStoryboard: { beats: [] },
+        iconLanguage: {
+          family: "lucide-like",
+          strokeStyle: "medium",
+          fillMode: "outline",
+          opticalSize: "balanced",
+          spacingRule: "tight",
+          decorativeAccent: "geometric",
+        },
+        componentGenome: {
+          shapeLanguage: "crisp",
+          density: "medium",
+          surfaceTreatment: "layered",
+          interactionPosture: "confident",
+          informationWeight: "balanced",
+          composability: "high",
+        },
+        providerDecisions: [],
+        critiqueHistory: [],
+        remixPlan: [],
+      },
     };
 
     const response = await POST(
@@ -389,7 +432,12 @@ describe("/api/chat route", () => {
     expect(startCalls[0]?.[1]).toEqual([
       expect.objectContaining({
         agentOptions: expect.objectContaining({
-          customInstructions: `${assistantFileLinkPrompt}\n\n# Server-Side UI Preflight\nUse the cloned reference before implementation.`,
+          customInstructions: `${assistantFileLinkPrompt}\n\n# Server-Side UI Studio Project\nUse the studio brief before implementation.`,
+          uiStudio: expect.objectContaining({
+            activeProject: expect.objectContaining({
+              productBrief: "Create a SaaS landing page",
+            }),
+          }),
         }),
       }),
     ]);
